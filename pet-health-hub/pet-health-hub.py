@@ -6,6 +6,10 @@ import thread
 
 import Tkinter as tk
 
+from simple_salesforce import Salesforce
+
+raw_data = ''
+
 def usage():
 	print 'usage:   pet-health <serial-device> <baud-rate>'
 	print 'example1: pet-health /dev/tty 9600'
@@ -18,8 +22,15 @@ def read_data():
 	serArduino.write('D\n')
 
 def upload_data():
+	global raw_data
 	print 'Upload data...'
 	print_output('Upload data')
+	print_output('Logging into Saleforce')
+	sf = Salesforce(username='oliver@pet.app', password='China!2015', security_token='lCvQJCBw4eRMA3qxXZxOKcxK')
+	print_output('Creating daylog')
+	result = sf.Daylog__c.create({'Device__c':'a01w0000029IwHZ','Raw__c':raw_data})
+	print_output(result)
+	raw_data = ''
 	# Go to SFDC
 
 def reset_device():
@@ -38,6 +49,7 @@ except Exception, e:
 	usage()
 
 serArduino = serial.Serial(sys.argv[1], sys.argv[2])
+serArduino.flushInput()
 qOutput = Queue.Queue()
 
 # Example <log message='Writing message to SD card'/>
@@ -46,6 +58,7 @@ def extract_payload(trimmedline):
 	return trimmedline [startPosition+1:-2]
 
 def receive():
+	global raw_data
 	while 1:
 		line = serArduino.readline()
 		trimmedline = line[:-2]
@@ -54,6 +67,7 @@ def receive():
 			qOutput.put('LOG: '+extract_payload(trimmedline))
 		else:
 			qOutput.put('RAW: '+trimmedline)
+			raw_data += line
 
 def receive_dummy():
 	counter = 1
@@ -78,7 +92,7 @@ def print_output(line):
 	txtOutput.see(tk.END)
 	txtOutput.config(state=tk.DISABLED)
 
-
+# Create UI
 root = tk.Tk()
 frmMain = tk.Frame(root)
 frmMain.pack(expand=1, fill=tk.BOTH)

@@ -9,10 +9,12 @@ import Tkinter as tk
 from simple_salesforce import Salesforce
 
 raw_data = ''
+sleep_duration = '23'
+sleep_activity = '42'
 
 def usage():
 	print 'usage:   pet-health <serial-device> <baud-rate>'
-	print 'example1: pet-health /dev/tty 9600'
+	print 'example1: python pet-health.py /dev/ttyUSB0 9600'
 	print 'example2: python pet-health.py /dev/tty.usbmodemfd13111 9600'
 	quit()
 
@@ -28,7 +30,16 @@ def upload_data():
 	print_output('Logging into Saleforce')
 	sf = Salesforce(username='oliver@pet.app', password='China!2015', security_token='lCvQJCBw4eRMA3qxXZxOKcxK')
 	print_output('Creating daylog')
-	result = sf.Daylog__c.create({'Device__c':'a01w0000029IwHZ','Raw__c':raw_data})
+	result = sf.Sleep_Log__c.create({
+		'Device__c':'a01w0000029IwHZ',
+		'Raw__c':raw_data,
+		'Sleep_Activity__c':sleep_activity,
+		'Sleep_Duration__c':sleep_duration,
+		'Has_GPS__c': 'false',
+		'Has_Temperature__c': 'false',
+		'Has_Sleep__c': 'true'
+	})
+	print_output('Upload completed')
 	print_output(result)
 	raw_data = ''
 	# Go to SFDC
@@ -59,6 +70,8 @@ def extract_payload(trimmedline):
 
 def receive():
 	global raw_data
+	global sleep_duration
+	global sleep_activity
 	while 1:
 		line = serArduino.readline()
 		trimmedline = line[:-2]
@@ -66,8 +79,16 @@ def receive():
 		if trimmedline.startswith('<log'):
 			qOutput.put('LOG: '+extract_payload(trimmedline))
 		else:
-			qOutput.put('RAW: '+trimmedline)
+			qOutput.put('RAW: '+trimmedline)		
 			raw_data += line
+			if trimmedline.startswith('SLEEP'):
+				startPosDuration = trimmedline.find('n=')
+				endPosDuration = trimmedline.find(',')
+				startPosActivity = trimmedline.find('y=')
+				sleep_duration = trimmedline[startPosDuration+2:endPosDuration]
+				print 'Arduino sleep_duration=' + sleep_duration
+				sleep_activity = trimmedline[startPosActivity+2:]
+				print 'Arduino sleep_activity=' + sleep_activity
 
 def receive_dummy():
 	counter = 1
